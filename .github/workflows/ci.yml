@@ -1,0 +1,46 @@
+# Lint, format check, typecheck, test and build. The package has no generated
+# client of its own: the management client comes from `kleora`, installed from
+# PyPI, and so does every network call. There are no live contract tests here
+# (README, "Contract tests").
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          # The floor `requires-python` promises.
+          python-version: "3.12"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run --locked ruff check .
+
+      - name: Format
+        run: uv run --locked ruff format --check .
+
+      - name: Typecheck
+        run: uv run --locked mypy
+
+      - name: Test
+        run: uv run --locked pytest
+
+      - name: Build
+        run: uv build --out-dir dist && ls -l dist

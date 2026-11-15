@@ -1,17 +1,50 @@
 [project]
 name = "django-kleora"
-version = "0.0.0"
-description = "Reserved for the official Kleora SDK. The first release is 0.1.0."
+version = "0.1.0"
+description = "Kleora Django integration — a django-ninja auth class, middleware, decorator and settings."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-classifiers = ["Development Status :: 1 - Planning"]
+# The same author and Homepage as `kleora`'s manifest, for the same reason:
+# without them PyPI renders an empty Author field and no link at all.
+authors = [{ name = "Kleora", email = "contact@kleora.io" }]
+dependencies = [
+    # `django-ninja` is a hard dependency, not an extra, because the first of
+    # the four things this package *is* — a django-ninja auth class — cannot be
+    # declared without importing `ninja.security.HttpBearer`, and the
+    # quickstart imports `KleoraAuthentication` from the top level. An extra
+    # would make that import raise for anyone who had not read a second
+    # paragraph. A project that only wants the
+    # middleware and the decorator pays for a package it does not import;
+    # `django-ninja` is pure Python with one dependency it shares with Django
+    # itself, so the price is a few hundred kilobytes rather than a build step.
+    "django>=5.0",
+    "django-ninja>=1.6.3",
+    # The Python SDK, from PyPI: token verification, the JWKS cache and the
+    # management client all live there. Bounded to the 0.1 series: a 0.x
+    # minor release may change its API, so the next one is opted into
+    # deliberately, with this package's suite run against it.
+    "kleora>=0.1.0,<0.2",
+]
 
 [project.urls]
 Homepage = "https://kleora.io"
 Documentation = "https://kleora.io/en/docs"
-Source = "https://github.com/kleora-io/kleora-django"
+Repository = "https://github.com/kleora-io/kleora-django"
+Issues = "https://github.com/kleora-io/kleora-django/issues"
+
+[dependency-groups]
+dev = [
+    # `django-stubs` rather than `ignore_missing_imports`: Django ships no
+    # `py.typed`, so without the stubs every `HttpRequest`, `AppConfig` and
+    # `JsonResponse` in this package is `Any` and `mypy --strict` checks a
+    # package whose entire job is Django glue by checking none of it.
+    "django-stubs[compatible-mypy]>=5.2.0",
+    "mypy>=1.18.0",
+    "pytest>=8.4.0",
+    "ruff>=0.14.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -19,3 +52,41 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/django_kleora"]
+
+# The source distribution carries what builds the wheel and nothing else: no
+# tests and no CI configuration.
+[tool.hatch.build.targets.sdist]
+include = ["src/django_kleora", "README.md", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.format]
+# `ruff format` reformats fenced `python` blocks in Markdown, and the README's
+# quickstart is the exact block Kleora's console shows a customer, executed by
+# `tests/test_quickstart.py`. The formatter would silently put two blank lines
+# before `@api.get`, editing it into something the console does not render.
+# So the prose is excluded from the formatter; `ruff check` still reads it.
+exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "BLE", "DJ", "C4", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+files = ["src"]
+
+[tool.django-stubs]
+# The suite's own settings module, and deliberately the same one: the plugin
+# imports a settings module to resolve Django's generics, and a second one
+# written for mypy alone would be one more thing that can disagree with what
+# the tests run under.
+django_settings_module = "tests.settings"
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
